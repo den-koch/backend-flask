@@ -7,12 +7,12 @@ from ..models import User
 users = {}
 
 
-@user.route("/", methods=["GET"])
+@user.route("/users", methods=["GET"])
 def get_users():
     return {user_id: user.__dict__ for user_id, user in users.items()}
 
 
-@user.route("/", methods=["POST"])
+@user.route("/users", methods=["POST"])
 def create_user():
     user_id = uuid.uuid4().hex
     new_user = User(user_id=user_id, **request.get_json())
@@ -20,7 +20,7 @@ def create_user():
     return new_user.__dict__
 
 
-@user.route("/<string:user_id>", methods=["GET", "DELETE"])
+@user.route("/users/<string:user_id>", methods=["GET", "DELETE"])
 def get_delete_user(user_id):
     if request.method == "GET":
         if user_id not in users.keys():

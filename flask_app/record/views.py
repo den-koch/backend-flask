@@ -7,7 +7,7 @@ from ..models import Record
 records = {}
 
 
-@record.route("/", methods=["GET"])
+@record.route("/records", methods=["GET"])
 def get_records():
     user_id = request.args.get("user_id")
     category_id = request.args.get("category_id")
@@ -26,7 +26,7 @@ def get_records():
     return {record_id: record.__dict__ for record_id, record in filter.items()}
 
 
-@record.route("/", methods=["POST"])
+@record.route("/records", methods=["POST"])
 def create_record():
     record_id = uuid.uuid4().hex
     new_record = Record(record_id=record_id, **request.get_json())
@@ -34,7 +34,7 @@ def create_record():
     return new_record.__dict__
 
 
-@record.route("/<string:record_id>", methods=["GET", "DELETE"])
+@record.route("/records/<string:record_id>", methods=["GET", "DELETE"])
 def get_delete_record(record_id):
     if request.method == "GET":
         if record_id not in records.keys():

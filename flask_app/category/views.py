@@ -7,7 +7,7 @@ from ..models import Category
 categories = {}
 
 
-@category.route("/",methods=["GET", "POST"])
+@category.route("/categories", methods=["GET", "POST"])
 def get_create_categories():
     if request.method == "GET":
         return {category_id: category.__dict__ for category_id, category in categories.items()}
@@ -20,7 +20,7 @@ def get_create_categories():
         return new_category.__dict__
 
 
-@category.route("/<string:category_id>", methods=["DELETE"])
+@category.route("/categories/<string:category_id>", methods=["DELETE"])
 def delete_category(category_id):
     if category_id not in categories.keys():
         return {"status": "204 (NO CONTENT)", "message": "Category not found"}

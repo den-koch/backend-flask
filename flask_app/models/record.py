@@ -1,9 +1,17 @@
-from datetime import datetime
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
-class Record:
-    def __init__(self, **kwargs):
-        self.id = kwargs["record_id"]
-        self.user_id = kwargs["user_id"]
-        self.category_id = kwargs["category_id"]
-        self.date_time = datetime.strptime(kwargs["date_time"], '%d/%m/%Y %H:%M')
-        self.amount = kwargs["amount"]
+from flask_app import db
+
+
+class RecordModel(db.Model):
+    __tablename__ = "records"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), unique=False, nullable=False)
+    category_id = db.Column(UUID(as_uuid=True), db.ForeignKey("categories.id"), unique=False, nullable=False)
+    date_time = db.Column(db.DateTime, nullable=False)
+    amount = db.Column(db.Float(precision=2), unique=False, nullable=False)
+
+    user = db.relationship("UserModel", back_populates="record")
+    category = db.relationship("CategoryModel", back_populates="record")

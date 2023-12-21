@@ -1,10 +1,14 @@
 from flask import request
-import uuid
+
+from marshmallow import ValidationError
+from sqlalchemy.exc import NoResultFound
 
 from . import record
-from ..models import Record
+from flask_app import app, db
+from flask_app.models import RecordModel
+from flask_app.models.schemas import RecordSchema
 
-records = {}
+record_schema = RecordSchema()
 
 
 @record.route("/records", methods=["GET"])
@@ -13,36 +17,62 @@ def get_records():
     category_id = request.args.get("category_id")
 
     if not user_id and not category_id:
-        return {"message": "Required parameters are not specified"}, 400
+        return "Required parameters are not specified", 400
 
-    filter = records
     if user_id:
-        filter = {record_id: record for record_id, record in filter.items() if
-                  record.user_id == user_id}
-    if category_id:
-        filter = {record_id: record for record_id, record in filter.items() if
-                  record.category_id == category_id}
+        if category_id:
+            records = RecordModel.query.filter_by(user_id=user_id, category_id=category_id)
+        else:
+            records = RecordModel.query.filter_by(user_id=user_id)
+    else:
+        records = RecordModel.query.filter_by(category_id=category_id)
 
-    return {record_id: record.__dict__ for record_id, record in filter.items()}
+    json_records = record_schema.dump(records, many=True)
+
+    return json_records, 200
 
 
 @record.route("/records", methods=["POST"])
 def create_record():
-    record_id = uuid.uuid4().hex
-    new_record = Record(record_id=record_id, **request.get_json())
-    records[record_id] = new_record
-    return new_record.__dict__
+    json_data = request.get_json()
+
+    try:
+        data = record_schema.load(json_data)
+    except ValidationError as err:
+        return err.messages, 400
+
+    post_record = RecordModel(user_id=data["user_id"], category_id=data["category_id"],
+                              date_time=data["date_time"], amount=data["amount"])
+
+    with app.app_context():
+        db.session.add(post_record)
+        db.session.commit()
+
+        json_record = record_schema.dump(post_record)
+
+    return json_record, 201
 
 
 @record.route("/records/<string:record_id>", methods=["GET", "DELETE"])
 def get_delete_record(record_id):
     if request.method == "GET":
-        if record_id not in records.keys():
-            return {"status": "404 (NOT FOUND)", "message": "Record not found"}
-        return {record_id: records[record_id].__dict__}
+        try:
+            get_record = RecordModel.query.filter_by(record_id=record_id).one()
+        except NoResultFound:
+            return f"Record {record_id} not found", 404
+
+        json_record = record_schema.dump(get_record)
+
+        return json_record, 200
 
     if request.method == "DELETE":
-        if record_id not in records.keys():
-            return {"status": "204 (NO CONTENT)", "message": "Record not found"}
-        del records[record_id]
-        return {"status": "200 (OK)", "message": "Record deleted"}
+        with app.app_context():
+            try:
+                delete_record = RecordModel.query.filter_by(record_id=record_id).one()
+            except NoResultFound:
+                return f"User {record_id} not found", 204
+
+            db.session.delete(delete_record)
+            db.session.commit()
+
+            return f"Record {record_id} deleted", 200

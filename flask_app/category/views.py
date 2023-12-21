@@ -26,7 +26,7 @@ def get_create_categories():
         try:
             data = category_schema.load(json_data)
         except ValidationError as err:
-            return err.messages, 400
+            return {"message": err.messages}, 400
 
         post_category = CategoryModel(category_name=data["category_name"])
 

@@ -27,7 +27,7 @@ def create_user():
     try:
         data = user_request_schema.load(json_data)
     except ValidationError as err:
-        return err.messages, 400
+        return {"message": err.messages}, 400
 
     post_user = UserModel(user_name=data["user_name"], email=data["email"], password=data["password"])
 
@@ -47,7 +47,7 @@ def get_delete_user(user_id):
         try:
             get_user = UserModel.query.filter_by(id=user_id).one()
         except NoResultFound:
-            return f"User {user_id} not found", 404
+            return {"message": f"User {user_id} not found"}, 404
 
         json_user = user_response_schema.dump(get_user)
 
@@ -58,9 +58,9 @@ def get_delete_user(user_id):
             try:
                 delete_user = UserModel.query.filter_by(id=user_id).one()
             except NoResultFound:
-                return f"User {user_id} not found", 204
+                return {"message": f"User {user_id} not found"}, 204
 
             db.session.delete(delete_user)
             db.session.commit()
 
-        return f"User {user_id} deleted", 200
+        return {"message": f"User {user_id} deleted"}, 200

@@ -17,7 +17,7 @@ def get_records():
     category_id = request.args.get("category_id")
 
     if not user_id and not category_id:
-        return "Required parameters are not specified", 400
+        return {"message": "Required parameters are not specified"}, 400
 
     if user_id:
         if category_id:
@@ -39,7 +39,7 @@ def create_record():
     try:
         data = record_schema.load(json_data)
     except ValidationError as err:
-        return err.messages, 400
+        return {"message": err.messages}, 400
 
     post_record = RecordModel(user_id=data["user_id"], category_id=data["category_id"],
                               date_time=data["date_time"], amount=data["amount"])
@@ -59,7 +59,7 @@ def get_delete_record(record_id):
         try:
             get_record = RecordModel.query.filter_by(record_id=record_id).one()
         except NoResultFound:
-            return f"Record {record_id} not found", 404
+            return {"message": f"Record {record_id} not found"}, 404
 
         json_record = record_schema.dump(get_record)
 
@@ -70,9 +70,9 @@ def get_delete_record(record_id):
             try:
                 delete_record = RecordModel.query.filter_by(record_id=record_id).one()
             except NoResultFound:
-                return f"User {record_id} not found", 204
+                return {"message": f"User {record_id} not found"}, 204
 
             db.session.delete(delete_record)
             db.session.commit()
 
-            return f"Record {record_id} deleted", 200
+            return {"message": f"Record {record_id} deleted"}, 200

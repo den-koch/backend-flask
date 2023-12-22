@@ -13,3 +13,4 @@ class UserModel(db.Model):
     password = db.Column(db.String(256), nullable=False)
 
     record = db.relationship("RecordModel", back_populates="user", lazy="dynamic")
+    user_category = db.relationship("UserCategoryModel", back_populates="user", lazy="dynamic")

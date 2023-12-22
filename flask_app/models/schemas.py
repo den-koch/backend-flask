@@ -1,5 +1,5 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError
-from flask_app.models import UserModel
+from flask_app.models import UserModel, CategoryModel
 
 
 class UserSchema(Schema):
@@ -25,8 +25,15 @@ class RecordSchema(Schema):
 class CategorySchema(Schema):
     id = fields.UUID(dump_only=True)
     category_name = fields.String(required=True)
+    is_custom = fields.Boolean(dump_only=True)
 
     @validates("category_name")
     def validate_email(self, category_name):
-        if UserModel.query.filter_by(category_name=category_name).first() is not None:
+        if CategoryModel.query.filter_by(category_name=category_name).first() is not None:
             raise ValidationError("Category already exists")
+
+
+class UserCategorySchema(Schema):
+    id = fields.UUID(dump_only=True)
+    user_id = fields.UUID(required=True)
+    category_id = fields.UUID(required=True)

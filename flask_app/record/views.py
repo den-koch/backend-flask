@@ -5,7 +5,7 @@ from sqlalchemy.exc import NoResultFound
 
 from . import record
 from flask_app import app, db
-from flask_app.models import RecordModel
+from flask_app.models import RecordModel, CategoryModel, UserCategoryModel
 from flask_app.models.schemas import RecordSchema
 
 record_schema = RecordSchema()
@@ -41,7 +41,18 @@ def create_record():
     except ValidationError as err:
         return {"message": err.messages}, 400
 
-    post_record = RecordModel(user_id=data["user_id"], category_id=data["category_id"],
+    user_id, category_id = data['user_id'], data['category_id']
+
+    category = CategoryModel.query.filter_by(id=category_id).first()
+    if not category:
+        return {"message": f"Category {category_id} not found"}, 404
+
+    if category.is_custom:
+        user_category = UserCategoryModel.query.filter_by(user_id=user_id, category_id=category_id).first()
+        if not user_category:
+            return {"message": "Category does not belong to the user"}, 400
+
+    post_record = RecordModel(user_id=user_id, category_id=category_id,
                               date_time=data["date_time"], amount=data["amount"])
 
     with app.app_context():

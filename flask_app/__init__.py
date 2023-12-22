@@ -12,6 +12,9 @@ import flask_app.views
 # app blueprints
 
 from .user import user as user_blueprint
+from .user_category import user_category as user_category_blueprint
+
+user_blueprint.register_blueprint(user_category_blueprint)
 
 app.register_blueprint(user_blueprint)
 

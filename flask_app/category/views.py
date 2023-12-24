@@ -1,10 +1,11 @@
 from flask import request
+from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
-from sqlalchemy.exc import NoResultFound, IntegrityError
+from sqlalchemy.exc import NoResultFound
 
 from . import category
 from flask_app import app, db
-from flask_app.models import CategoryModel
+from flask_app.models import CategoryModel, RecordModel
 from flask_app.models.schemas import CategorySchema
 
 category_request_schema = CategorySchema()
@@ -12,6 +13,7 @@ category_response_schema = CategorySchema(only=("id", "category_name"))
 
 
 @category.route("/categories", methods=["GET", "POST"])
+@jwt_required()
 def get_create_categories():
     if request.method == "GET":
         categories = CategoryModel.query.filter_by(is_custom=False).all()
@@ -41,8 +43,14 @@ def get_create_categories():
 
 
 @category.route("/categories/<string:category_id>", methods=["DELETE"])
+@jwt_required()
 def delete_category(category_id):
     with app.app_context():
+
+        category_record = RecordModel.query.filter_by(category_id=category_id).first()
+        if not category_record:
+            return {"message": f"Category {category_id} in use"}, 403
+
         try:
             delete_category = CategoryModel.query.filter_by(id=category_id, is_custom=False).one()
         except NoResultFound:

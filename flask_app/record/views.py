@@ -1,5 +1,6 @@
 from flask import request
-
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from uuid import UUID
 from marshmallow import ValidationError
 from sqlalchemy.exc import NoResultFound
 
@@ -12,20 +13,18 @@ record_schema = RecordSchema()
 
 
 @record.route("/records", methods=["GET"])
+@jwt_required()
 def get_records():
-    user_id = request.args.get("user_id")
+    user_id = get_jwt_identity()
     category_id = request.args.get("category_id")
 
     if not user_id and not category_id:
         return {"message": "Required parameters are not specified"}, 400
 
-    if user_id:
-        if category_id:
-            records = RecordModel.query.filter_by(user_id=user_id, category_id=category_id)
-        else:
-            records = RecordModel.query.filter_by(user_id=user_id)
+    if category_id:
+        records = RecordModel.query.filter_by(user_id=user_id, category_id=category_id)
     else:
-        records = RecordModel.query.filter_by(category_id=category_id)
+        records = RecordModel.query.filter_by(user_id=user_id)
 
     json_records = record_schema.dump(records, many=True)
 
@@ -33,6 +32,7 @@ def get_records():
 
 
 @record.route("/records", methods=["POST"])
+@jwt_required()
 def create_record():
     json_data = request.get_json()
 
@@ -41,7 +41,7 @@ def create_record():
     except ValidationError as err:
         return {"message": err.messages}, 400
 
-    user_id, category_id = data['user_id'], data['category_id']
+    user_id, category_id = get_jwt_identity(), data['category_id']
 
     category = CategoryModel.query.filter_by(id=category_id).first()
     if not category:
@@ -65,12 +65,18 @@ def create_record():
 
 
 @record.route("/records/<string:record_id>", methods=["GET", "DELETE"])
+@jwt_required()
 def get_delete_record(record_id):
+    current_user_id = get_jwt_identity()
+
     if request.method == "GET":
         try:
-            get_record = RecordModel.query.filter_by(record_id=record_id).one()
+            get_record = RecordModel.query.filter_by(id=record_id).one()
         except NoResultFound:
             return {"message": f"Record {record_id} not found"}, 404
+
+        if get_record.user_id != UUID(current_user_id):
+            return {'message': 'Unauthorized'}, 403
 
         json_record = record_schema.dump(get_record)
 
@@ -79,9 +85,12 @@ def get_delete_record(record_id):
     if request.method == "DELETE":
         with app.app_context():
             try:
-                delete_record = RecordModel.query.filter_by(record_id=record_id).one()
+                delete_record = RecordModel.query.filter_by(id=record_id).one()
             except NoResultFound:
                 return {"message": f"User {record_id} not found"}, 204
+
+            if delete_record.user_id != UUID(current_user_id):
+                return {'message': 'Unauthorized'}, 403
 
             db.session.delete(delete_record)
             db.session.commit()

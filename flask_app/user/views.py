@@ -1,13 +1,16 @@
-from flask import request
+from flask import request, jsonify
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from marshmallow import ValidationError
-from sqlalchemy.exc import NoResultFound, IntegrityError
+from passlib.hash import pbkdf2_sha256
+from sqlalchemy.exc import NoResultFound
 
 from . import user
 from flask_app import app, db
 from flask_app.models import UserModel
 from flask_app.models.schemas import UserSchema
 
-user_request_schema = UserSchema()
+user_signup_schema = UserSchema()
+user_signin_schema = UserSchema(only=("email", "password"))
 user_response_schema = UserSchema(only=("id", "user_name", "email"))
 
 
@@ -20,16 +23,23 @@ def get_users():
     return json_users, 200
 
 
-@user.route("/users", methods=["POST"])
-def create_user():
+@user.route("/users/signup", methods=["POST"])
+def user_signup():
     json_data = request.get_json()
 
     try:
-        data = user_request_schema.load(json_data)
+        data = user_signup_schema.load(json_data)
+
+        if UserModel.query.filter_by(email=data["email"]).first() is not None:
+            raise ValidationError("Email already exists")
+
     except ValidationError as err:
         return {"message": err.messages}, 400
 
-    post_user = UserModel(user_name=data["user_name"], email=data["email"], password=data["password"])
+
+
+    post_user = UserModel(user_name=data["user_name"], email=data["email"],
+                          password=pbkdf2_sha256.hash(data["password"]))
 
     with app.app_context():
         db.session.add(post_user)
@@ -40,8 +50,31 @@ def create_user():
         return json_user, 201
 
 
+@user.route("/users/signin", methods=["POST"])
+def user_signin():
+    json_data = request.get_json()
+
+    try:
+        data = user_signin_schema.load(json_data)
+    except ValidationError as err:
+        return {"message": err.messages}, 400
+
+    get_user = UserModel.query.filter_by(email=data["email"]).first()
+
+    if get_user and pbkdf2_sha256.verify(data["password"], get_user.password):
+        access_token = create_access_token(identity=get_user.id)
+        return {"access_token": access_token}, 200
+    else:
+        return {"message": "Bad email or password"}, 401
+
+
 @user.route("/users/<string:user_id>", methods=["GET", "DELETE"])
+@jwt_required()
 def get_delete_user(user_id):
+    current_user_id = get_jwt_identity()
+    if user_id != current_user_id:
+        return {'message': 'Unauthorized'}, 403
+
     if request.method == "GET":
 
         try:

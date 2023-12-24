@@ -1,10 +1,11 @@
 from flask import request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy.exc import NoResultFound
 
 from . import user_category
 from flask_app import app, db
-from flask_app.models import UserCategoryModel, CategoryModel, UserModel
+from flask_app.models import UserCategoryModel, CategoryModel, UserModel, RecordModel
 from flask_app.models.schemas import UserCategorySchema, CategorySchema
 
 category_request_schema = CategorySchema()
@@ -12,11 +13,17 @@ category_response_schema = CategorySchema(only=("id", "category_name"))
 
 
 @user_category.route("/user-categories", methods=["GET"])
+@jwt_required()
 def get_user_categories(user_id):
-    try:
-        user = UserModel.query.filter_by(id=user_id).one()
-    except NoResultFound:
-        return {"message": f"User {user_id} not found"}, 404
+    current_user_id = get_jwt_identity()
+
+    if user_id != current_user_id:
+        return {'message': 'Unauthorized'}, 403
+
+    # try:
+    #     user = UserModel.query.filter_by(id=user_id).one()
+    # except NoResultFound:
+    #     return {"message": f"User {user_id} not found"}, 404
 
     user_categories = UserCategoryModel.query.filter_by(user_id=user_id).all()
 
@@ -30,11 +37,12 @@ def get_user_categories(user_id):
 
 
 @user_category.route("/user-categories", methods=["POST"])
+@jwt_required()
 def create_user_category(user_id):
-    try:
-        user = UserModel.query.filter_by(id=user_id).one()
-    except NoResultFound:
-        return {"message": f"User {user_id} not found"}, 404
+    current_user_id = get_jwt_identity()
+
+    if user_id != current_user_id:
+        return {'message': 'Unauthorized'}, 403
 
     json_data = request.get_json()
 
@@ -61,13 +69,19 @@ def create_user_category(user_id):
 
 
 @user_category.route("/user-categories/<string:user_category_id>", methods=["DELETE"])
+@jwt_required()
 def delete_category(user_id, user_category_id):
-    try:
-        user = UserModel.query.filter_by(id=user_id).one()
-    except NoResultFound:
-        return {"message": f"User {user_id} not found"}, 404
+    current_user_id = get_jwt_identity()
+
+    if user_id != current_user_id:
+        return {'message': 'Unauthorized'}, 403
 
     with app.app_context():
+
+        category_record = RecordModel.query.filter_by(category_id=user_category_id).first()
+        if not category_record:
+            return {"message": f"Category {user_category_id} in use"}, 403
+
         try:
             user_category = UserCategoryModel.query.filter_by(user_id=user_id, category_id=user_category_id).one()
             delete_user_category = CategoryModel.query.filter_by(id=user_category_id, is_custom=True).one()
